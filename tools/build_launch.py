@@ -85,10 +85,20 @@ def main(src, ref, out):
     # Formspree honeypot, if an older export brings it back
     tN = re.sub(r'<input[^>]*name="_gotcha"[^>]*>', '', tN)
 
-    # build stamp
-    stamp_live = re.search(r"const QAM_BUILD = '([^']*)'", tL).group(1)
+    # Build stamp. Keep the export's own "rounds 1 to N" text and stamp today's
+    # launch date onto it, so two deploys of the same Design round can be told
+    # apart in the shipped file. Falls back to the reference if the export has
+    # no stamp of its own. Pass QAM_BUILD_DATE to override the date.
+    import datetime, os
+    rounds = re.search(r"const QAM_BUILD = '([^';]*)", tN)
+    if not rounds:
+        rounds = re.search(r"const QAM_BUILD = '([^';]*)", tL)
+    if not rounds:
+        raise SystemExit("no build stamp in either file")
+    date = os.environ.get("QAM_BUILD_DATE") or datetime.date.today().strftime("%B %-d, %Y")
+    stamp = rounds.group(1).strip() + "; launch build, " + date
     tN = re.sub(r"const QAM_BUILD = '[^']*'",
-                "const QAM_BUILD = '" + stamp_live + "'", tN, count=1)
+                "const QAM_BUILD = '" + stamp + "'", tN, count=1)
 
     # click-to-play script
     play_live = re.search(r'(<script>\n\(function\(\)\{\n  document\.addEventListener\(.click.*?</script>)', tL, re.S)
